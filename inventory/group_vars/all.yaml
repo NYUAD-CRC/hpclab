@@ -3,3 +3,4 @@ home_volume: hpclab-home
 lxd_image_base: hpclab-base-image
 lxd_image_controller: hpclab-controller-image
 lxd_image_compute: hpclab-compute-image
+slurm_munge_key: private/munge.key

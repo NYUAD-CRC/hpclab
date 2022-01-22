@@ -1,8 +1,6 @@
 #######################################################################
 # Slurm configurations
 #######################################################################
-slurm_munge_key: files/munge.key
-
 slurm_cgroup_config:
   CgroupMountpoint: "/sys/fs/cgroup"
   CgroupAutomount: yes

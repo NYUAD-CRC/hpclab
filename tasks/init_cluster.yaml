@@ -11,8 +11,22 @@
         path: "{{ playbook_dir }}/private/id_hpclab_rsa"
 
 
-  
-    # only once
+    - name: Check munge.key
+      become: false
+      local_action:
+        module: ansible.builtin.stat
+        path: "{{ slurm_munge_key }}"
+      register: result
+
+    - name: Create munge.key
+      become: false
+      local_action:
+        module: ansible.builtin.copy
+        dest: "{{ slurm_munge_key }}"
+        content: "{{ lookup('community.general.random_string', length=1024) }}"
+      when: not result.stat.exists
+
+
     - name: create project
       command: lxc project create {{ project|quote }}
       register: result
