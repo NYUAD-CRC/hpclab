@@ -5,7 +5,7 @@
   gather_facts: false
   become: true
   tasks:
-    - name: create profiles
+    - name: Destroy cluster containers
       command: lxc delete "{{ item }}" --project {{ project }} --force
-      loop: "{{ groups['hpclab'] | map('extract', hostvars, ['inventory_hostname_short']) + ['hpclab-master-image'] }}"
+      loop: "{{ groups['hpclab'] | map('extract', hostvars, ['inventory_hostname_short']) }}"
     #TODO: Storage/Project...etc 
