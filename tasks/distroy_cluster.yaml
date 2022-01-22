@@ -1,0 +1,11 @@
+- hosts: lxdhost
+  collections:
+    - ansible.builtin
+
+  gather_facts: false
+  become: true
+  tasks:
+    - name: create profiles
+      command: lxc delete "{{ item }}" --project {{ project }} --force
+      loop: "{{ groups['hpclab'] | map('extract', hostvars, ['inventory_hostname_short']) + ['hpclab-master-image'] }}"
+    #TODO: Storage/Project...etc 

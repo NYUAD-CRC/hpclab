@@ -1,0 +1,61 @@
+#######################################################################
+# Slurm configurations
+#######################################################################
+slurm_munge_key: files/munge.key
+
+slurm_cgroup_config:
+  CgroupMountpoint: "/sys/fs/cgroup"
+  CgroupAutomount: yes
+  ConstrainCores: yes
+  TaskAffinity: no
+  ConstrainRAMSpace: yes
+  ConstrainSwapSpace: no
+  ConstrainDevices: no
+  AllowedRamSpace: 100
+  AllowedSwapSpace: 0
+  MaxRAMPercent: 100
+  MaxSwapPercent: 100
+  MinRAMSpace: 30
+
+slurm_config:
+  SlurmctldHost: "{{ hostvars[groups['hpclab_logins'][0]]['inventory_hostname_short'] }}"
+  AccountingStorageType: "accounting_storage/none"
+  ClusterName: cluster
+  JobAcctGatherType: "jobacct_gather/none"
+  MpiDefault: none
+  ProctrackType: "proctrack/cgroup"
+  ReturnToService: 1
+  SchedulerType: "sched/backfill"
+  SelectType: "select/cons_res"
+  SelectTypeParameters: "CR_Core"
+  SlurmctldLogFile: "/var/log/slurm/slurmctld.log"
+  SlurmctldPidFile: "/var/run/slurmctld.pid"
+  SlurmdLogFile: "/var/log/slurm/slurmd.log"
+  SlurmdPidFile: "/var/run/slurmd.pid"
+  SlurmdSpoolDir: "/var/spool/slurmd"
+  StateSaveLocation: "/var/spool/slurmctld"
+  SwitchType: "switch/none"
+  TaskPlugin: "task/affinity,task/cgroup"
+  TaskPluginParam: Sched
+
+slurm_create_user: yes
+slurm_user:
+  comment: "Slurm Workload Manager"
+  gid: 888
+  group: slurm
+  home: "/var/lib/slurm"
+  name: slurm
+  shell: "/usr/sbin/nologin"
+  uid: 888
+
+  slurm_nodes:
+  - name: "{{ groups['hpclab_computes'] | map('extract', hostvars, ['inventory_hostname_short']) | join(',') }}"
+    CPUs: 2
+    RealMemory: 1800
+
+slurm_partitions:
+  - name: compute
+    Default: YES
+    MaxTime: UNLIMITED
+    Nodes: ALL
+    State: UP

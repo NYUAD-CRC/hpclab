@@ -1,0 +1,155 @@
+- hosts: lxdhost
+  collections:
+    - ansible.builtin
+      
+  become: true
+  tasks:
+    - name: Generate SSH key
+      become: false
+      local_action:
+        module: community.crypto.openssh_keypair
+        path: "{{ playbook_dir }}/private/id_hpclab_rsa"
+
+
+  
+    # only once
+    - name: create project
+      command: lxc project create {{ project|quote }}
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc != 0 and "already exists" not in result.stderr
+
+    # TODO: create network
+    # TODO: create storage pool
+    
+    - name: create profiles
+      command: "{{ item }}"
+      loop:
+        - lxc profile device add default root disk path=/ pool=default --project {{ project }}
+        - lxc profile device add default eth0 nic name=eth0 network=lxdbr0 --project {{ project }}
+        - lxc profile create cloud-user-data --project {{ project }}
+        - lxc storage volume create default {{ home_volume }} --project {{ project }}
+        - lxc storage volume attach-profile default {{ home_volume }} default /home --project {{ project }}
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc != 0 and "already exists" not in result.stderr
+
+    - name: create cloud-init profile
+      shell: "{{ item }}"
+      loop:
+        - |
+          lxc profile edit cloud-user-data --project {{ project }} << PROFILE
+          config:
+           user.user-data: |
+            #cloud-config
+            users:
+            - name: hpcadmin
+              gecos: HPC Admin
+              lock_passwd: true
+              ssh-authorized-keys:
+                - {{ lookup('file', 'private/id_hpclab_rsa.pub') }}
+              sudo: ['ALL=(ALL) NOPASSWD:ALL']
+              groups: sudo
+              shell: /bin/bash
+
+            ssh_keys:
+              rsa_private: |
+                {{ lookup('file', 'private/id_hpclab_rsa') | indent( width=6, first=false) }}
+            rsa_public: {{ lookup('file', 'private/id_hpclab_rsa.pub') }}
+
+            packages:
+              - epel-release
+              - dnf-plugins-core
+              - less
+
+            runcmd:
+              - dnf config-manager --set-enabled powertools
+              - cp /etc/ssh/ssh_host_rsa_key /home/hpcadmin/.ssh/id_rsa
+              - cp /etc/ssh/ssh_host_rsa_key.pub /home/hpcadmin/.ssh/id_rsa.pub
+              - chown hpcadmin:hpcadmin /home/hpcadmin/.ssh/id_rsa*
+          PROFILE
+
+
+
+    #######################################################################
+    # Base image
+    #######################################################################
+    - name: Create base image
+      command: "{{ item }}"
+      loop:
+        - lxc launch images:centos/8/cloud {{ lxd_image_base }} -p default -p cloud-user-data --project {{ project }}
+        - lxc exec --project {{ project }} {{ lxd_image_base }} -- cloud-init status --wait
+        - lxc publish --project {{ project }} {{ lxd_image_base }} --alias {{ lxd_image_base }} --force
+        - lxc delete --project {{ project }} {{ lxd_image_base }} --force
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc != 0 and "already exists" not in result.stderr
+
+
+    #######################################################################
+    # Controller image
+    #######################################################################
+    - name: Create controller image 
+      command: "{{ item }}"
+      loop:
+        - lxc launch {{ lxd_image_base }} --project {{ project }} {{ lxd_image_controller }}
+        - lxc exec --project {{ project }} {{ lxd_image_controller }} -- cloud-init status --wait
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc != 0 and "already exists" not in result.stderr
+
+    - name: Configure controller image 
+      block:
+        - setup:
+        - include_role: 
+            name: galaxyproject.slurm
+          vars:
+            slurm_roles: ['controller', 'dbd']
+            slurm_configure_munge: false
+        
+        - meta: flush_handlers
+      delegate_to: "{{ lxd_image_controller }}.lxd"
+      become: true
+
+    - name: Publish controller image 
+      command: "{{ item }}"
+      loop:
+        - lxc publish --project {{ project }} {{ lxd_image_controller }} --alias {{ lxd_image_controller }} --force
+        - lxc delete --project {{ project }} {{ lxd_image_controller }} --force
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc != 0 and "already exists" not in result.stderr
+
+
+    #######################################################################
+    # Compute image
+    #######################################################################
+    - name: Create compute image 
+      command: "{{ item }}"
+      loop:
+        - lxc launch {{ lxd_image_base }} --project {{ project }} {{ lxd_image_compute }}
+        - lxc exec --project {{ project }} {{ lxd_image_compute }} -- cloud-init status --wait
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc != 0 and "already exists" not in result.stderr
+
+    - name: Configure compute image 
+      block:
+        - setup:
+        - include_role: 
+            name: galaxyproject.slurm
+          vars:
+            slurm_roles: ['exec']
+            slurm_configure_munge: false
+        - meta: flush_handlers
+      delegate_to: "{{ lxd_image_compute }}.lxd"
+      become: true
+
+    - name: Publish compute image 
+      command: "{{ item }}"
+      loop:
+        - lxc publish --project {{ project }} {{ lxd_image_compute }} --alias {{ lxd_image_compute }} --force
+        - lxc delete --project {{ project }} {{ lxd_image_compute }} --force
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc != 0 and "already exists" not in result.stderr

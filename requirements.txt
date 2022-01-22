@@ -1,0 +1,3 @@
+ansible==5.*
+paramiko
+lxc-python3

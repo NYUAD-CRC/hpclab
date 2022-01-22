@@ -1,0 +1,17 @@
+- hosts: hpclab
+  gather_facts: false
+  become: true
+  pre_tasks:
+    - name: Create container
+      command: "{{ item }}"
+      loop:
+        - lxc launch {{ lxd_image }} --project {{ project }} {{ inventory_hostname_short }}
+        - lxc exec --project {{ project }} {{ inventory_hostname_short }} -- cloud-init status --wait
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc != 0 and "already exists" not in result.stderr
+      delegate_to: lxdhost
+  tasks:
+    - setup:
+    - include_role: 
+        name: galaxyproject.slurm
