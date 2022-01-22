@@ -1,18 +1,20 @@
 # Configure 'lxdhost' to match yours!
 lxdhost ansible_host=mynyuad
 
-# DO NOT EDIT BELOW THIS LINE
-
-[lxd_images]
-hpclab-base-image.lxd 
-hpclab-controller-image.lxd
-hpclab-compute-image.lxd
-
 [hpclab_logins]
 login-hpclab-01.lxd
 
 [hpclab_computes]
 compute-hpclab-[01:04].lxd
+
+##############################
+# DO NOT EDIT BELOW THIS LINE
+##############################
+ 
+[lxd_images]
+hpclab-base-image.lxd 
+hpclab-controller-image.lxd
+hpclab-compute-image.lxd
 
 [hpclab:children]
 hpclab_logins
