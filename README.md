@@ -1,8 +1,10 @@
 # HPC Lab 
+**WORK IN PROGRESS**
+
 Spin up a Slurm cluster using ansible.
  
 
-## Task
+## Tasks
 - `init-cluster` : Prepare LXD project, create profiles, volumes and images...etc.
 - `create-cluster`: Create cluster containers nodes and configure Slurm
 - `destroy-cluster`: Destroy all cluster nodes.
