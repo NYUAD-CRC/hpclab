@@ -1,9 +1,11 @@
 # Configure 'lxdhost' to match yours!
 lxdhost ansible_host=mynyuad
 
+# Login nodes
 [hpclab_logins]
-login-hpclab-01.lxd
+login-hpclab-[01:01].lxd
 
+# Compute nodes
 [hpclab_computes]
 compute-hpclab-[01:04].lxd
 
