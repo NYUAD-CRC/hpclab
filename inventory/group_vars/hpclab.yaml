@@ -46,7 +46,7 @@ slurm_user:
   shell: "/usr/sbin/nologin"
   uid: 888
 
-  slurm_nodes:
+slurm_nodes:
   - name: "{{ groups['hpclab_computes'] | map('extract', hostvars, ['inventory_hostname_short']) | join(',') }}"
     CPUs: 2
     RealMemory: 1800
