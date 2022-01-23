@@ -1,7 +1,7 @@
 # HPC Lab 
-**WORK IN PROGRESS**
+[![stability-wip](https://img.shields.io/badge/stability-wip-lightgrey.svg)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#work-in-progress)
 
-Spin up a Slurm cluster using ansible.
+Spin up an LXC-based Slurm cluster using ansible.
  
 
 ## Tasks
