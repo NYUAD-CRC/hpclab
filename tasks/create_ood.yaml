@@ -1,0 +1,189 @@
+- hosts: ood-portal.lxd
+  gather_facts: false
+  become: true
+  vars:
+    - cert_key: "{{ playbook_dir }}/private/{{ inventory_hostname }}.pem"
+    - cert_csr: "{{ playbook_dir }}/private/{{ inventory_hostname }}.csr"
+    - cert_crt: "{{ playbook_dir }}/private/{{ inventory_hostname }}.crt"
+  pre_tasks:
+    - name: Create container
+      command: "{{ item }}"
+      loop:
+        - lxc launch {{ lxd_image_base }} --project {{ project }} {{ inventory_hostname_short }}
+        - lxc exec --project {{ project }} {{ inventory_hostname_short }} -- cloud-init status --wait
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc != 0 and "already exists" not in result.stderr
+      delegate_to: lxdhost
+  tasks:
+    - setup:
+
+    #######################################################################
+    # Locally: Generate Self signed certificate -> private 
+    #######################################################################
+    - name: Generate an OpenSSL private key with the default values (4096 bits, RSA)
+      become: false
+      local_action:
+        module: community.crypto.openssl_privatekey
+        path: "{{ cert_key }}"
+    
+    - name: Generate an OpenSSL Certificate Signing Request with a passphrase protected private key
+      become: false
+      local_action:
+        module: community.crypto.openssl_csr
+        path: "{{ cert_csr }}"
+        privatekey_path: "{{ cert_key }}"
+        common_name: "{{ inventory_hostname }}"
+        # basic_constraints: "CA:TRUE,pathlen:1"
+        # basic_constraints_critical: true
+
+    - name: Generate a Self Signed OpenSSL certificate
+      become: false
+      local_action:
+        module: community.crypto.x509_certificate
+        path: "{{ cert_crt }}"
+        privatekey_path: "{{ cert_key }}"
+        csr_path: "{{ cert_csr }}"
+        provider: selfsigned
+
+    - name: install ca package on rhel systems
+      yum:
+        name: ca-certificates
+        state: present
+
+    - name: copy certificate authority to trusted ca path of the os
+      copy:
+        src: '{{ cert_crt }}'
+        dest: '/etc/pki/ca-trust/source/anchors'
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Copy ood certificate
+      copy:
+        src: '{{ cert_crt }}'
+        dest: '/etc/pki/tls/certs/'
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Copy ood certificate key
+      copy:
+        src: '{{ cert_key }}'
+        dest: '/etc/pki/tls/private/'
+        owner: root
+        group: root
+        mode: 0600
+
+    - name: Update trusted CA 
+      command: /bin/update-ca-trust
+
+
+
+
+
+    #######################################################################
+    # OOD packages
+    #######################################################################
+    - name: Enable DNF modules
+      command: "{{ item }}"
+      loop:
+        - dnf module enable ruby:2.7 -y 
+        - dnf module enable nodejs:12 -y
+
+    - name: Add Open OnDemand’s repository GPG key
+      rpm_key:
+        state: present
+        key: https://yum.osc.edu/ondemand/RPM-GPG-KEY-ondemand
+    
+    - name: Add Open OnDemand’s repository
+      yum:
+        name: https://yum.osc.edu/ondemand/2.0/ondemand-release-web-2.0-1.noarch.rpm
+        state: present
+        disable_gpg_check: true #TODO: for some reason GPG key above not working!
+    
+    - name: Install Open OnDemand packages
+      yum:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - ondemand
+        # - ondemand-dex
+        - mod_authnz_pam
+
+    #######################################################################
+    # OOD configurations
+    #######################################################################
+    - name: ood-portal configuration
+      copy:
+        src: files/ood_portal.yml
+        dest: /etc/ood/config/ood_portal.yml 
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Make sure destination dir exists
+      file:
+        path: /etc/ood/config/apps/shell
+        state: directory
+
+    - name: Shell configuration
+      copy:
+        src: files/apps-shell-env
+        dest: /etc/ood/config/apps/shell/env
+        owner: root
+        group: root
+        mode: 0644
+    
+    - name: Configure mod_authnz_pam
+      copy:
+        content: LoadModule authnz_pam_module modules/mod_authnz_pam.so
+        dest: /etc/httpd/conf.modules.d/55-authnz_pam.conf 
+        owner: root
+        group: root
+        mode: 0644
+    
+    - name: Set the necessary PAM service
+      copy:
+        src: /etc/pam.d/sshd
+        dest: /etc/pam.d/ood
+        directory_mode: yes
+        remote_src: yes
+
+    - name: Allow the Apache user to read /etc/shadow
+      file:
+        path: /etc/shadow
+        group: apache
+        mode: '0644'
+
+
+    
+    
+    - name: Update OOD portal
+      command: /opt/ood/ood-portal-generator/sbin/update_ood_portal --force
+      notify:
+        - Restart services
+
+
+    - name: Ensure apache is running
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+      loop:
+        - httpd
+        # - ondemand-dex
+
+
+
+
+  #######################################################################
+  # Handlers
+  #######################################################################
+  handlers:
+    - name: Restart services
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - httpd
+        # - ondemand-dex

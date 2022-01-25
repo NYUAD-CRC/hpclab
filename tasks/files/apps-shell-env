@@ -1,0 +1,2 @@
+DEFAULT_SSHHOST="localhost"
+OOD_SSHHOST_ALLOWLIST="localhost"
