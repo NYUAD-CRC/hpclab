@@ -1,0 +1,18 @@
+v2:
+  metadata:
+    title: "HPC Lab"
+  login:
+    host: "login-hpclab-01.lxd"
+
+  job:
+    adapter: "slurm"
+    submit_host: "login-hpclab-01.lxd"
+    strict_host_checking: false
+    # cluster: "my_cluster"
+    # bin: "/usr/bin"
+    # conf: "/etc/slurm/slurm.conf"
+    # bin_overrides:
+    #   sbatch: "ssh /usr/local/bin/sbatch"
+    #   # squeue: ""
+    #   # scontrol: ""
+    #   # scancel: ""
