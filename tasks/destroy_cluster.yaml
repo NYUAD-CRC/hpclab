@@ -5,7 +5,11 @@
   gather_facts: false
   become: true
   tasks:
-    - name: Destroy cluster containers
-      command: lxc delete "{{ item }}" --project {{ project }} --force
-      loop: "{{ groups['hpclab'] | map('extract', hostvars, ['inventory_hostname_short']) }}"
-    #TODO: Storage/Project...etc 
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: project
+        action: delete
+        args:
+          project: "{{ project }}"
+          storage: default

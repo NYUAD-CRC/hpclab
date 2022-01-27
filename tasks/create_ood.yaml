@@ -57,16 +57,22 @@
     - cert_csr: "{{ playbook_dir }}/private/{{ inventory_hostname }}.csr"
     - cert_crt: "{{ playbook_dir }}/private/{{ inventory_hostname }}.crt"
   pre_tasks:
-    - name: Create container
-      command: "{{ item }}"
-      loop:
-        - lxc launch {{ lxd_image_base }} --project {{ project }} {{ inventory_hostname_short }}
-        - lxc exec --project {{ project }} {{ inventory_hostname_short }} -- cloud-init status --wait
-      register: result
-      changed_when: result.rc == 0
-      failed_when: result.rc != 0 and "already exists" not in result.stderr
-      delegate_to: lxdhost
+    - include_role:
+        name: dacrystal.lxc
+        apply:
+          delegate_to: lxdhost
+      vars:
+        task: instance
+        action: launch
+        args:
+          instance: "{{ inventory_hostname_short }}"
+          project: "{{ project }}"
+          image: "{{ lxd_image_base }}"
+          description: "Slurm compute image"
+
   tasks:
+    - name: Wait for target connection to become reachable/usable
+      wait_for_connection:
     - setup:
 
     #######################################################################
@@ -195,7 +201,7 @@
     #######################################################################
     # OOD Shell App
     #######################################################################
-    - name: Make sure destination dir exists
+    - name: Ensure destination dir exists
       file:
         path: /etc/ood/config/apps/shell
         state: directory
@@ -211,7 +217,7 @@
     #######################################################################
     # OOD HPC Lab Cluster 
     #######################################################################  
-    - name: Make sure destination dir exists
+    - name: Ensure destination dir exists
       file:
         path: /etc/ood/config/clusters.d
         state: directory
