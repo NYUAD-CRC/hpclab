@@ -1,3 +1,54 @@
+#######################################################################
+# HPC prerequisite
+#######################################################################
+- hosts: hpclab
+  become: true
+  tasks:
+    - name: Install packages on HPC nodes
+      dnf:
+        name: "{{ item }}"
+        state: present    
+      loop:
+        - "@Xfce"
+        - "@base-x"
+        - tigervnc-server
+
+
+    - name: Create /etc/skel/.vnc
+      file:
+        path: /etc/skel/.vnc
+        state: directory
+        mode: 0644
+
+    - name: xstartup skel
+      copy:
+        dest: "/etc/skel/.vnc/xstartup"
+        content: |
+          #!/bin/bash
+          [[ -r \${HOME}/.Xresources ]] && xrdb \${HOME}/.Xresources
+          startxfce4 &
+        owner: root
+        group: root
+        mode: 0755
+    
+    - name: config skel
+      copy:
+        dest: "/etc/skel/.vnc/config"
+        content: |
+          session=xfce
+          geometry=1920x1200
+          localhost
+          # alwaysshared
+          SecurityTypes=VncAuth,TLSVnc
+        owner: root
+        group: root
+        mode: 0644
+
+
+
+#######################################################################
+# OOD portal
+#######################################################################
 - hosts: ood-portal.lxd
   gather_facts: false
   become: true
