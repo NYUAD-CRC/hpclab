@@ -1,4 +1,5 @@
 
+/roles/dacrystal.lxd
 /venv
 /tasks/private/*
 !/tasks/private/.gitkeep
