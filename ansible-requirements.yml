@@ -3,3 +3,7 @@ collections:
 
 roles:
   - name: galaxyproject.slurm
+
+  - name: dacrystal.lxc
+    version: main
+    src: https://github.com/dacrystal/ansible-role-lxc

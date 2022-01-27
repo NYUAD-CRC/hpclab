@@ -27,90 +27,155 @@
       when: not result.stat.exists
 
 
-    - name: create project
-      command: lxc project create {{ project|quote }}
-      register: result
-      changed_when: result.rc == 0
-      failed_when: result.rc != 0 and "already exists" not in result.stderr
+
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: project
+        action: create
+        args:
+          project: "{{ project }}"
+          description: "HPC homelab"
+          config:
+            features.images: "true"
+            features.profiles: "true"
+            features.storage.volumes: "true"
+
 
     # TODO: create network
     # TODO: create storage pool
-    
-    - name: create profiles
-      command: "{{ item }}"
-      loop:
-        - lxc profile device add default root disk path=/ pool=default --project {{ project }}
-        - lxc profile device add default eth0 nic name=eth0 network=lxdbr0 --project {{ project }}
-        - lxc profile create cloud-user-data --project {{ project }}
-        - lxc storage volume create default {{ home_volume }} --project {{ project }}
-        - lxc storage volume attach-profile default {{ home_volume }} default /home --project {{ project }}
-      register: result
-      changed_when: result.rc == 0
-      failed_when: result.rc != 0 and "already exists" not in result.stderr
 
-    - name: create cloud-init profile
-      shell: "{{ item }}"
-      loop:
-        - |
-          lxc profile edit cloud-user-data --project {{ project }} << PROFILE
+
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: volume
+        action: create
+        args:
+          project: "{{ project }}"
+          storage: default
+          volume: "{{ home_volume }}"
+          description: "Shared Home volume"
+
+
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: profile
+        action: create
+        devices_base:
+          eth0:
+            name: eth0
+            network: lxdbr0
+            type: nic
+          root:
+            path: /
+            pool: default
+            type: disk
+        devices_dynamic: |
+          {{ home_volume }}:
+            path: /home
+            pool: default
+            source: {{ home_volume }}
+            type: disk
+        args:
+          project: "{{ project }}"
+          profile: default
+          description: "Default {{ project }}"
+          devices: "{{ devices_base |combine(devices_dynamic |from_yaml) }}"
+
+
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: profile
+        action: create
+        args:
+          project: "{{ project }}"
+          profile: cloud-user-data
+          description: "Cloud-init customization"
           config:
-           user.user-data: |
-            #cloud-config
-            users:
-            - name: hpcadmin
-              gecos: HPC Admin
-              lock_passwd: true
-              ssh-authorized-keys:
-                - {{ lookup('file', 'private/id_hpclab_rsa.pub') }}
-              sudo: ['ALL=(ALL) NOPASSWD:ALL']
-              groups: sudo
-              shell: /bin/bash
+            user.user-data: |
+              #cloud-config
+              users:
+              - name: hpcadmin
+                gecos: HPC Admin
+                lock_passwd: true
+                ssh-authorized-keys:
+                  - {{ lookup('file', 'private/id_hpclab_rsa.pub') }}
+                sudo: ['ALL=(ALL) NOPASSWD:ALL']
+                groups: sudo
+                shell: /bin/bash
 
-            ssh_keys:
-              rsa_private: |
-                {{ lookup('file', 'private/id_hpclab_rsa') | indent( width=6, first=false) }}
-            rsa_public: {{ lookup('file', 'private/id_hpclab_rsa.pub') }}
+              ssh_keys:
+                rsa_private: |
+                  {{ lookup('file', 'private/id_hpclab_rsa') | indent( width=6, first=false) }}
+              rsa_public: {{ lookup('file', 'private/id_hpclab_rsa.pub') }}
 
-            packages:
-              - epel-release
-              - dnf-plugins-core
-              - less
+              packages:
+                - epel-release
+                - dnf-plugins-core
+                - less
 
-            runcmd:
-              - dnf config-manager --set-enabled powertools
-              - cp /etc/ssh/ssh_host_rsa_key /home/hpcadmin/.ssh/id_rsa
-              - cp /etc/ssh/ssh_host_rsa_key.pub /home/hpcadmin/.ssh/id_rsa.pub
-              - chown hpcadmin:hpcadmin /home/hpcadmin/.ssh/id_rsa*
-          PROFILE
-
+              runcmd:
+                - dnf config-manager --set-enabled powertools
+                - cp /etc/ssh/ssh_host_rsa_key /home/hpcadmin/.ssh/id_rsa
+                - cp /etc/ssh/ssh_host_rsa_key.pub /home/hpcadmin/.ssh/id_rsa.pub
+                - chown hpcadmin:hpcadmin /home/hpcadmin/.ssh/id_rsa*
 
 
     #######################################################################
     # Base image
     #######################################################################
-    - name: Create base image
-      command: "{{ item }}"
-      loop:
-        - lxc launch images:centos/8/cloud {{ lxd_image_base }} -p default -p cloud-user-data --project {{ project }}
-        - lxc exec --project {{ project }} {{ lxd_image_base }} -- cloud-init status --wait
-        - lxc publish --project {{ project }} {{ lxd_image_base }} --alias {{ lxd_image_base }} --force
-        - lxc delete --project {{ project }} {{ lxd_image_base }} --force
-      register: result
-      changed_when: result.rc == 0
-      failed_when: result.rc != 0 and "already exists" not in result.stderr
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: instance
+        action: launch
+        args:
+          instance: "{{ lxd_image_base }}"
+          project: "{{ project }}"
+          image: images:centos/8/cloud
+          profiles:
+            - default
+            - cloud-user-data
+          description: "Slurm base image"
+          wait_cloud: true
 
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: image
+        action: publish
+        args:
+          instance: "{{ lxd_image_base }}"
+          project: "{{ project }}"
+          alias: "{{ lxd_image_base }}"
+          force: true
 
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: instance
+        action: delete
+        args:
+          instance: "{{ lxd_image_base }}"
+          project: "{{ project }}"
+          force: true  
     #######################################################################
     # Controller image
     #######################################################################
-    - name: Create controller image 
-      command: "{{ item }}"
-      loop:
-        - lxc launch {{ lxd_image_base }} --project {{ project }} {{ lxd_image_controller }}
-        - lxc exec --project {{ project }} {{ lxd_image_controller }} -- cloud-init status --wait
-      register: result
-      changed_when: result.rc == 0
-      failed_when: result.rc != 0 and "already exists" not in result.stderr
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: instance
+        action: launch
+        args:
+          instance: "{{ lxd_image_controller }}"
+          project: "{{ project }}"
+          image: "{{ lxd_image_base }}"
+          description: "Slurm controller image"
+          wait_cloud: true
 
     - name: Configure controller image 
       block:
@@ -125,28 +190,41 @@
       delegate_to: "{{ lxd_image_controller }}.lxd"
       become: true
 
-    - name: Publish controller image 
-      command: "{{ item }}"
-      loop:
-        - lxc publish --project {{ project }} {{ lxd_image_controller }} --alias {{ lxd_image_controller }} --force
-        - lxc delete --project {{ project }} {{ lxd_image_controller }} --force
-      register: result
-      changed_when: result.rc == 0
-      failed_when: result.rc != 0 and "already exists" not in result.stderr
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: image
+        action: publish
+        args:
+          instance: "{{ lxd_image_controller }}"
+          project: "{{ project }}"
+          alias: "{{ lxd_image_controller }}"
+          force: true
 
-
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: instance
+        action: delete
+        args:
+          instance: "{{ lxd_image_controller }}"
+          project: "{{ project }}"
+          force: true  
     #######################################################################
     # Compute image
     #######################################################################
-    - name: Create compute image 
-      command: "{{ item }}"
-      loop:
-        - lxc launch {{ lxd_image_base }} --project {{ project }} {{ lxd_image_compute }}
-        - lxc exec --project {{ project }} {{ lxd_image_compute }} -- cloud-init status --wait
-      register: result
-      changed_when: result.rc == 0
-      failed_when: result.rc != 0 and "already exists" not in result.stderr
-
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: instance
+        action: launch
+        args:
+          instance: "{{ lxd_image_compute }}"
+          project: "{{ project }}"
+          image: "{{ lxd_image_base }}"
+          description: "Slurm compute image"
+          wait_cloud: true
+    
     - name: Configure compute image 
       block:
         - setup:
@@ -158,12 +236,25 @@
         - meta: flush_handlers
       delegate_to: "{{ lxd_image_compute }}.lxd"
       become: true
+    
 
-    - name: Publish compute image 
-      command: "{{ item }}"
-      loop:
-        - lxc publish --project {{ project }} {{ lxd_image_compute }} --alias {{ lxd_image_compute }} --force
-        - lxc delete --project {{ project }} {{ lxd_image_compute }} --force
-      register: result
-      changed_when: result.rc == 0
-      failed_when: result.rc != 0 and "already exists" not in result.stderr
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: image
+        action: publish
+        args:
+          instance: "{{ lxd_image_compute }}"
+          project: "{{ project }}"
+          alias: "{{ lxd_image_compute }}"
+          force: true
+
+    - include_role:
+        name: dacrystal.lxc
+      vars:
+        task: instance
+        action: delete
+        args:
+          instance: "{{ lxd_image_compute }}"
+          project: "{{ project }}"
+          force: true
