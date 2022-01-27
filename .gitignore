@@ -3,7 +3,7 @@
 /venv
 /tasks/private/*
 !/tasks/private/.gitkeep
-.nogit
+*.nogit
 # Created by https://www.toptal.com/developers/gitignore/api/macos
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos
 
