@@ -9,11 +9,18 @@
         name: "{{ item }}"
         state: present    
       loop:
-        - "@Xfce"
         - "@base-x"
-        # - tigervnc-server
         - python3-pip
         - nmap-ncat
+
+    - name: Install xfce4 on HPC nodes
+      dnf:
+        name: "@Xfce"
+        state: present    
+      exclude:
+        - xfce4-screensaver
+        - xfce4-power-manager
+
 
     - name: Install python packages
       pip:
