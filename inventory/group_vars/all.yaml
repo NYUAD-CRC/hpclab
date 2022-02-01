@@ -1,6 +1,7 @@
 project: hpclab
-home_volume: hpclab-home
+base_distro_image: images:almalinux/8/cloud
 lxd_image_base: hpclab-base-image
 lxd_image_controller: hpclab-controller-image
 lxd_image_compute: hpclab-compute-image
+home_volume: hpclab-home
 slurm_munge_key: private/munge.key

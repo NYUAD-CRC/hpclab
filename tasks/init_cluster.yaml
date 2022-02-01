@@ -110,7 +110,7 @@
 
               ssh_keys:
                 rsa_private: |
-                  {{ lookup('file', 'private/id_hpclab_rsa') | indent( width=6, first=false) }}
+                  {{ lookup('file', 'private/id_hpclab_rsa') | indent( width=4, first=false) }}
               rsa_public: {{ lookup('file', 'private/id_hpclab_rsa.pub') }}
 
               packages:
@@ -136,7 +136,7 @@
         args:
           instance: "{{ lxd_image_base }}"
           project: "{{ project }}"
-          image: images:centos/8/cloud
+          image: "{{ base_distro_image }}"
           profiles:
             - default
             - cloud-user-data
