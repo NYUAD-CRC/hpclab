@@ -1,0 +1,5 @@
+---
+title: "HPC Lap Desktop"
+cluster: "hpclab_cluster"
+attributes:
+  desktop: "xfce"

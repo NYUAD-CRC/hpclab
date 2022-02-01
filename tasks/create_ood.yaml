@@ -11,8 +11,21 @@
       loop:
         - "@Xfce"
         - "@base-x"
-        - tigervnc-server
+        # - tigervnc-server
+        - python3-pip
+        - nmap-ncat
 
+    - name: Install python packages
+      pip:
+        name: "{{ item }}"
+      loop:
+        - websockify>=0.8.0
+
+    - name: Install Turbovnc
+      yum:
+        name: https://liquidtelecom.dl.sourceforge.net/project/turbovnc/2.2.7/turbovnc-2.2.7.x86_64.rpm
+        state: present
+        disable_gpg_check: true #TODO: for some reason GPG key above not working!
 
     - name: Create /etc/skel/.vnc
       file:
@@ -226,6 +239,20 @@
       copy:
         src: files/hpclab_cluster.yml
         dest: /etc/ood/config/clusters.d/hpclab_cluster.yml
+        owner: root
+        group: root
+        mode: 0644
+
+    # Dekstop
+    - name: Ensure destination dir exists
+      file:
+        path: /etc/ood/config/apps/bc_desktop
+        state: directory
+
+    - name: HPCLab Cluster configuration
+      copy:
+        src: files/hpclab_bc_desktop.yml
+        dest: /etc/ood/config/apps/bc_desktop/hpclab.yml
         owner: root
         group: root
         mode: 0644

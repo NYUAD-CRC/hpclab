@@ -447,3 +447,7 @@ auth:
 
 
 lua_log_level: 'debug'
+
+host_regex: '[\w.-]+\.lxd'
+node_uri: '/node'
+rnode_uri: '/rnode'

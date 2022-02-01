@@ -16,3 +16,14 @@ v2:
     #   # squeue: ""
     #   # scontrol: ""
     #   # scancel: ""
+  batch_connect:
+    basic:
+      script_wrapper: |
+        %s
+      set_host: "host=$(hostname -A | awk '{print $1}')"
+    vnc:
+      script_wrapper: |
+        export PATH="/opt/TurboVNC/bin:$PATH"
+        export WEBSOCKIFY_CMD="/usr/local/bin/websockify"
+        %s
+      set_host: "host=$(hostname -A | awk '{print $1}')"
