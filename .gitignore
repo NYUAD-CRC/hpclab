@@ -1,8 +1,8 @@
 
 /roles/dacrystal.lxc
 /venv
-/tasks/private/*
-!/tasks/private/.gitkeep
+/playbooks/private/*
+!/playbooks/private/.gitkeep
 *.nogit
 # Created by https://www.toptal.com/developers/gitignore/api/macos
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos
